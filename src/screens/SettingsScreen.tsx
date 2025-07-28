@@ -7,7 +7,6 @@ import {
   SafeAreaView,
   ScrollView,
   TouchableOpacity,
-  Switch,
   Alert,
   Dimensions,
 } from 'react-native';
@@ -25,42 +24,29 @@ type ThemeType = 'Dark' | 'Light' | 'Gold';
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ activeTab, onTabPress }) => {
   const [selectedTheme, setSelectedTheme] = useState<ThemeType>('Dark');
-  const [notificationSound, setNotificationSound] = useState(true);
-  const [vibration, setVibration] = useState(true);
 
-  const themes: { name: ThemeType; description: string; icon: string }[] = [
+  const themes: { name: ThemeType; description: string; icon: string; locked?: boolean }[] = [
     { name: 'Dark', description: 'Classic dark theme', icon: 'moon' },
-    { name: 'Light', description: 'Clean light theme', icon: 'sunny' },
-    { name: 'Gold', description: 'Luxurious gold theme', icon: 'diamond' },
+    { name: 'Light', description: 'Clean light theme', icon: 'sunny', locked: true },
+    { name: 'Gold', description: 'Luxurious gold theme', icon: 'diamond', locked: true },
   ];
 
   const handleThemeSelect = (theme: ThemeType) => {
+    const selectedThemeData = themes.find(t => t.name === theme);
+    if (selectedThemeData?.locked) {
+      Alert.alert(
+        'Theme Locked',
+        `${theme} theme is coming soon! Stay tuned for updates.`,
+        [{ text: 'OK', style: 'default' }]
+      );
+      return;
+    }
     setSelectedTheme(theme);
     // Here you would implement theme switching logic
     console.log(`Theme changed to: ${theme}`);
   };
 
-  const handleResetProgress = () => {
-    Alert.alert(
-      'Reset Progress',
-      'Are you sure you want to reset all your quiz progress? This action cannot be undone.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: () => {
-            // Here you would implement progress reset logic
-            Alert.alert('Success', 'Your progress has been reset.');
-            console.log('Progress reset');
-          },
-        },
-      ]
-    );
-  };
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -88,25 +74,49 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ activeTab, onTabPress }
                   style={[
                     styles.themeOption,
                     theme.name === themes[themes.length - 1].name && styles.lastOption,
+                    theme.locked && styles.lockedThemeOption,
                   ]}
                   onPress={() => handleThemeSelect(theme.name)}
                   activeOpacity={0.7}
                 >
                   <View style={styles.themeLeft}>
-                    <View style={styles.themeIconContainer}>
-                      <Icon name={theme.icon} size={20} color="#CBA656" />
+                    <View style={[
+                      styles.themeIconContainer,
+                      theme.locked && styles.lockedIconContainer
+                    ]}>
+                      <Icon 
+                        name={theme.icon} 
+                        size={20} 
+                        color={theme.locked ? "#666666" : "#CBA656"} 
+                      />
                     </View>
                     <View style={styles.themeInfo}>
-                      <Text style={styles.themeTitle}>{theme.name}</Text>
-                      <Text style={styles.themeDescription}>{theme.description}</Text>
+                      <View style={styles.themeTitleContainer}>
+                        <Text style={[
+                          styles.themeTitle,
+                          theme.locked && styles.lockedThemeTitle
+                        ]}>
+                          {theme.name}
+                        </Text>
+                        {theme.locked && (
+                          <Icon name="lock-closed" size={14} color="#666666" style={styles.lockIcon} />
+                        )}
+                      </View>
+                      <Text style={[
+                        styles.themeDescription,
+                        theme.locked && styles.lockedThemeDescription
+                      ]}>
+                        {theme.locked ? 'Coming soon' : theme.description}
+                      </Text>
                     </View>
                   </View>
                   <View style={styles.radioContainer}>
                     <View style={[
                       styles.radioButton,
-                      selectedTheme === theme.name && styles.radioButtonSelected
+                      selectedTheme === theme.name && styles.radioButtonSelected,
+                      theme.locked && styles.lockedRadioButton
                     ]}>
-                      {selectedTheme === theme.name && (
+                      {selectedTheme === theme.name && !theme.locked && (
                         <View style={styles.radioButtonInner} />
                       )}
                     </View>
@@ -116,76 +126,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ activeTab, onTabPress }
             </View>
           </View>
 
-          {/* Notifications Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Notifications</Text>
-            <View style={styles.sectionCard}>
-              {/* Notification Sound Toggle */}
-              <View style={styles.settingRow}>
-                <View style={styles.settingLeft}>
-                  <View style={styles.settingIconContainer}>
-                    <Icon name="notifications" size={20} color="#CBA656" />
-                  </View>
-                  <View style={styles.settingInfo}>
-                    <Text style={styles.settingTitle}>Notification Sound</Text>
-                    <Text style={styles.settingDescription}>Play sound for notifications</Text>
-                  </View>
-                </View>
-                <Switch
-                  value={notificationSound}
-                  onValueChange={setNotificationSound}
-                  trackColor={{ false: '#2A2A2A', true: 'rgba(203, 166, 86, 0.3)' }}
-                  thumbColor={notificationSound ? '#CBA656' : '#666666'}
-                  ios_backgroundColor="#2A2A2A"
-                />
-              </View>
 
-              <View style={styles.separator} />
-
-              {/* Vibration Toggle */}
-              <View style={[styles.settingRow, styles.lastSettingRow]}>
-                <View style={styles.settingLeft}>
-                  <View style={styles.settingIconContainer}>
-                    <Icon name="phone-portrait" size={20} color="#CBA656" />
-                  </View>
-                  <View style={styles.settingInfo}>
-                    <Text style={styles.settingTitle}>Vibration</Text>
-                    <Text style={styles.settingDescription}>Vibrate on interactions</Text>
-                  </View>
-                </View>
-                <Switch
-                  value={vibration}
-                  onValueChange={setVibration}
-                  trackColor={{ false: '#2A2A2A', true: 'rgba(203, 166, 86, 0.3)' }}
-                  thumbColor={vibration ? '#CBA656' : '#666666'}
-                  ios_backgroundColor="#2A2A2A"
-                />
-              </View>
-            </View>
-          </View>
-
-          {/* Data Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Data Management</Text>
-            <View style={styles.sectionCard}>
-              <TouchableOpacity
-                style={styles.resetButton}
-                onPress={handleResetProgress}
-                activeOpacity={0.7}
-              >
-                <View style={styles.resetLeft}>
-                  <View style={styles.resetIconContainer}>
-                    <Icon name="refresh" size={20} color="#FF6B6B" />
-                  </View>
-                  <View style={styles.resetInfo}>
-                    <Text style={styles.resetTitle}>Reset Progress</Text>
-                    <Text style={styles.resetDescription}>Clear all quiz data and statistics</Text>
-                  </View>
-                </View>
-                <Icon name="chevron-forward" size={20} color="#666666" />
-              </TouchableOpacity>
-            </View>
-          </View>
 
           {/* App Info Section */}
           <View style={styles.section}>
@@ -340,85 +281,27 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: '#CBA656',
   },
-  settingRow: {
+  lockedThemeOption: {
+    opacity: 0.6,
+  },
+  lockedIconContainer: {
+    backgroundColor: 'rgba(102, 102, 102, 0.1)',
+  },
+  themeTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
   },
-  lastSettingRow: {
-    borderBottomWidth: 0,
+  lockedThemeTitle: {
+    color: '#666666',
   },
-  settingLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+  lockIcon: {
+    marginLeft: 8,
   },
-  settingIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(203, 166, 86, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
+  lockedThemeDescription: {
+    color: '#666666',
   },
-  settingInfo: {
-    flex: 1,
-  },
-  settingTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 4,
-    letterSpacing: 0.3,
-  },
-  settingDescription: {
-    fontSize: 14,
-    color: '#B8B8B8',
-    letterSpacing: 0.2,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    marginHorizontal: 20,
-  },
-  resetButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-  },
-  resetLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  resetIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 107, 107, 0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-  },
-  resetInfo: {
-    flex: 1,
-  },
-  resetTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FF6B6B',
-    marginBottom: 4,
-    letterSpacing: 0.3,
-  },
-  resetDescription: {
-    fontSize: 14,
-    color: '#B8B8B8',
-    letterSpacing: 0.2,
+  lockedRadioButton: {
+    borderColor: '#444444',
   },
   infoRow: {
     flexDirection: 'row',

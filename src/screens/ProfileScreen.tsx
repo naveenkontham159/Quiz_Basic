@@ -9,10 +9,12 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Image,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { launchImageLibrary, ImagePickerResponse, MediaType } from 'react-native-image-picker';
 import BottomNavbar from '../components/BottomNavbar';
-import { getUserProfile, updateUserName, UserProfile } from '../services/userDataService';
+import { getUserProfile, updateUserName, updateProfileImage, UserProfile } from '../services/userDataService';
 
 const { width, height } = Dimensions.get('window');
 
@@ -23,37 +25,140 @@ interface ProfileScreenProps {
   onProfileUpdate?: (profile: UserProfile) => void;
 }
 
-const ProfileScreen: React.FC<ProfileScreenProps> = ({ activeTab, onTabPress }) => {
-  const [userName, setUserName] = useState('John Doe');
+const ProfileScreen: React.FC<ProfileScreenProps> = ({ 
+  activeTab, 
+  onTabPress, 
+  userProfile, 
+  onProfileUpdate 
+}) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [tempName, setTempName] = useState(userName);
+  const [tempName, setTempName] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  // Mock user data - in a real app, this would come from your state management/API
-  const userStats = {
-    gamesPlayed: 47,
-    avgAccuracy: 78.5,
-    bestScore: 95,
-    userId: 'UXA294',
+  // Load user profile on component mount if not provided
+  useEffect(() => {
+    if (userProfile) {
+      setTempName(userProfile.name);
+      setLoading(false);
+    } else {
+      loadUserProfile();
+    }
+  }, [userProfile]);
+
+  const loadUserProfile = async () => {
+    try {
+      setLoading(true);
+      const profile = await getUserProfile();
+      if (onProfileUpdate) {
+        onProfileUpdate(profile);
+      }
+      setTempName(profile.name);
+    } catch (error) {
+      console.error('Error loading user profile:', error);
+      Alert.alert('Error', 'Failed to load user profile');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleEditName = () => {
     setIsEditing(true);
-    setTempName(userName);
+    setTempName(userProfile?.name || '');
   };
 
-  const handleSaveName = () => {
+  const handleSaveName = async () => {
     if (tempName.trim().length === 0) {
       Alert.alert('Error', 'Name cannot be empty');
       return;
     }
-    setUserName(tempName.trim());
-    setIsEditing(false);
+    
+    try {
+      const updatedProfile = await updateUserName(tempName.trim());
+      if (onProfileUpdate) {
+        onProfileUpdate(updatedProfile);
+      }
+      setIsEditing(false);
+      Alert.alert('Success', 'Name updated successfully!');
+    } catch (error) {
+      console.error('Error updating name:', error);
+      Alert.alert('Error', 'Failed to update name');
+    }
   };
 
   const handleCancelEdit = () => {
-    setTempName(userName);
+    setTempName(userProfile?.name || '');
     setIsEditing(false);
   };
+
+  const handleImagePicker = () => {
+    const options = {
+      mediaType: 'photo' as MediaType,
+      includeBase64: false,
+      maxHeight: 2000,
+      maxWidth: 2000,
+      quality: 0.8,
+    };
+
+    launchImageLibrary(options, (response: ImagePickerResponse) => {
+      if (response.didCancel || response.errorMessage) {
+        return;
+      }
+
+      if (response.assets && response.assets[0]) {
+        const imageUri = response.assets[0].uri;
+        if (imageUri) {
+          updateUserProfileImage(imageUri);
+        }
+      }
+    });
+  };
+
+  const updateUserProfileImage = async (imageUri: string) => {
+    try {
+      const updatedProfile = await updateProfileImage(imageUri);
+      if (onProfileUpdate) {
+        onProfileUpdate(updatedProfile);
+      }
+      Alert.alert('Success', 'Profile image updated successfully!');
+    } catch (error) {
+      console.error('Error updating profile image:', error);
+      Alert.alert('Error', 'Failed to update profile image');
+    }
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <View style={styles.background}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Profile</Text>
+          </View>
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading profile...</Text>
+          </View>
+          <BottomNavbar activeTab={activeTab} onTabPress={onTabPress} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!userProfile) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="#000000" />
+        <View style={styles.background}>
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Profile</Text>
+          </View>
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Error loading profile</Text>
+          </View>
+          <BottomNavbar activeTab={activeTab} onTabPress={onTabPress} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -69,9 +174,23 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ activeTab, onTabPress }) 
         <View style={styles.content}>
           {/* Avatar Section */}
           <View style={styles.avatarSection}>
-            <View style={styles.avatarContainer}>
-              <Icon name="person" size={60} color="#CBA656" />
-            </View>
+            <TouchableOpacity 
+              style={styles.avatarContainer}
+              onPress={handleImagePicker}
+              activeOpacity={0.8}
+            >
+              {userProfile.profileImage ? (
+                <Image 
+                  source={{ uri: userProfile.profileImage }} 
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <Icon name="person" size={60} color="#CBA656" />
+              )}
+              <View style={styles.editImageOverlay}>
+                <Icon name="camera" size={20} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
           </View>
 
           {/* User Info Section */}
@@ -106,7 +225,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ activeTab, onTabPress }) 
                 </View>
               ) : (
                 <View style={styles.nameDisplayContainer}>
-                  <Text style={styles.userName}>{userName}</Text>
+                  <Text style={styles.userName}>{userProfile.name}</Text>
                   <TouchableOpacity
                     style={styles.editButton}
                     onPress={handleEditName}
@@ -118,7 +237,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ activeTab, onTabPress }) 
             </View>
 
             {/* User ID */}
-            <Text style={styles.userId}>#{userStats.userId}</Text>
+            <Text style={styles.userId}>#{userProfile.userId}</Text>
           </View>
 
           {/* Stats Section */}
@@ -132,7 +251,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ activeTab, onTabPress }) 
                   <Icon name="game-controller" size={24} color="#CBA656" />
                 </View>
                 <View style={styles.statContent}>
-                  <Text style={styles.statValue}>{userStats.gamesPlayed}</Text>
+                  <Text style={styles.statValue}>{userProfile.stats.gamesPlayed}</Text>
                   <Text style={styles.statLabel}>Games Played</Text>
                 </View>
               </View>
@@ -143,7 +262,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ activeTab, onTabPress }) 
                   <Icon name="analytics" size={24} color="#CBA656" />
                 </View>
                 <View style={styles.statContent}>
-                  <Text style={styles.statValue}>{userStats.avgAccuracy}%</Text>
+                  <Text style={styles.statValue}>{userProfile.stats.avgAccuracy}%</Text>
                   <Text style={styles.statLabel}>Avg Accuracy</Text>
                 </View>
               </View>
@@ -154,7 +273,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ activeTab, onTabPress }) 
                   <Icon name="trophy" size={24} color="#CBA656" />
                 </View>
                 <View style={styles.statContent}>
-                  <Text style={styles.statValue}>{userStats.bestScore}%</Text>
+                  <Text style={styles.statValue}>{userProfile.stats.bestScore}%</Text>
                   <Text style={styles.statLabel}>Best Score</Text>
                 </View>
               </View>
@@ -219,6 +338,44 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 8,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 60,
+  },
+  editImageOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#CBA656',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#000000',
+    shadowColor: '#000000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#B8B8B8',
+    letterSpacing: 0.3,
   },
   userInfoSection: {
     alignItems: 'center',

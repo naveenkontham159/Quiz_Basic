@@ -23,6 +23,7 @@ export interface QuizResult {
 export interface UserProfile {
   name: string;
   userId: string;
+  profileImage?: string; // Base64 encoded image or file path
   stats: UserStats;
   recentQuizzes: QuizResult[];
 }
@@ -104,6 +105,22 @@ export const updateUserName = async (newName: string): Promise<UserProfile> => {
     return updatedProfile;
   } catch (error) {
     console.error('Error updating user name:', error);
+    throw error;
+  }
+};
+
+// Update profile image
+export const updateProfileImage = async (imageUri: string): Promise<UserProfile> => {
+  try {
+    const profile = await getUserProfile();
+    const updatedProfile = {
+      ...profile,
+      profileImage: imageUri,
+    };
+    await saveUserProfile(updatedProfile);
+    return updatedProfile;
+  } catch (error) {
+    console.error('Error updating profile image:', error);
     throw error;
   }
 };
